@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
+<title>K.L.N TEXTILES - WEFT GREY</title>
+<style>
+*{box-sizing:border-box}body{margin:0;font-family:Arial,sans-serif;background:#f3f6fa;color:#172033}
+header{background:#102a56;color:white;padding:18px 16px;position:sticky;top:0;z-index:5}
+header h1{margin:0;font-size:20px}header p{margin:5px 0 0;font-size:13px;opacity:.85}
+main{padding:14px;max-width:700px;margin:auto}.card{background:white;border-radius:14px;padding:15px;margin-bottom:14px;box-shadow:0 2px 10px #00000012}
+h2{font-size:17px;margin:0 0 12px}.grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+label{font-size:12px;color:#667085;display:block;margin-bottom:5px}input{width:100%;padding:11px;border:1px solid #d5dbe5;border-radius:9px;font-size:15px}
+button{border:0;border-radius:9px;padding:11px 14px;font-weight:bold;cursor:pointer}.primary{background:#1261d6;color:white}.secondary{background:#e9eef6;color:#172033}.danger{background:#ffe7e7;color:#c62828}.actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+.summary{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}.sum{padding:12px;border-radius:10px;background:#eef4ff}.sum b{display:block;font-size:18px}.sum small{color:#667085}
+.tablewrap{overflow:auto}table{width:100%;border-collapse:collapse;font-size:12px;min-width:650px}th,td{padding:9px 7px;border-bottom:1px solid #edf0f5;text-align:left}th{background:#f7f9fc;color:#536071;position:sticky;top:0}.edit{color:#1261d6}.del{color:#c62828}
+#records{margin-top:8px}.empty{text-align:center;color:#778196;padding:25px}
+.search{margin-bottom:10px}
+</style>
+</head>
+<body>
+<header><h1>K.L.N TEXTILES</h1><p>WEFT GREY • Stock Register</p></header>
+<main>
+<section class="card">
+<h2>New Entry</h2>
+<div class="grid">
+<div><label>Date</label><input id="date" type="date"></div>
+<div><label>Bill No</label><input id="bill" inputmode="numeric"></div>
+<div><label>DC No</label><input id="dc"></div>
+<div><label>Item Name</label><input id="item"></div>
+<div><label>Weft In (KG)</label><input id="in" type="number" step="0.001" min="0"></div>
+<div><label>Weft Out (KG)</label><input id="out" type="number" step="0.001" min="0"></div>
+</div>
+<div class="actions">
+<button class="primary" onclick="saveEntry()">SAVE ENTRY</button>
+<button class="secondary" onclick="clearForm()">CLEAR</button>
+</div>
+</section>
+
+<section class="card">
+<h2>Today / Overall Balance</h2>
+<div class="summary">
+<div class="sum"><small>Total In</small><b id="tin">0.000</b></div>
+<div class="sum"><small>Total Out</small><b id="tout">0.000</b></div>
+<div class="sum"><small>Balance</small><b id="bal">0.000</b></div>
+</div>
+</section>
+
+<section class="card">
+<h2>Details / Records</h2>
+<input class="search" id="search" placeholder="Search Bill No / DC No / Item Name" oninput="render()">
+<div class="actions">
+<button class="secondary" onclick="exportCSV()">EXPORT EXCEL (CSV)</button>
+</div>
+<div id="records"></div>
+</section>
+</main>
+
+<script>
+let data=JSON.parse(localStorage.getItem('kln_weft_grey')||'[]'), editId=null;
+const $=id=>document.getElementById(id);
+$('date').value=new Date().toISOString().slice(0,10);
+
+function saveEntry(){
+ const entry={id:editId||Date.now(),date:$('date').value,bill:$('bill').value.trim(),dc:$('dc').value.trim(),item:$('item').value.trim(),in:+$('in').value||0,out:+$('out').value||0};
+ if(!entry.date||!entry.bill||!entry.dc||!entry.item){alert('Date, Bill No, DC No and Item Name are required.');return}
+ if(editId){data=data.map(x=>x.id===editId?entry:x);editId=null}else data.push(entry);
+ localStorage.setItem('kln_weft_grey',JSON.stringify(data));clearForm();render();
+}
+function clearForm(){['bill','dc','item','in','out'].forEach(x=>$(x).value='');$('date').value=new Date().toISOString().slice(0,10);editId=null}
+function editEntry(id){let x=data.find(a=>a.id===id);if(!x)return;editId=id;$('date').value=x.date;$('bill').value=x.bill;$('dc').value=x.dc;$('item').value=x.item;$('in').value=x.in||'';$('out').value=x.out||'';scrollTo(0,0)}
+function deleteEntry(id){if(confirm('Delete this record?')){data=data.filter(x=>x.id!==id);localStorage.setItem('kln_weft_grey',JSON.stringify(data));render()}}
+function render(){
+ let q=$('search').value.toLowerCase();
+ let rows=data.filter(x=>(x.bill+' '+x.dc+' '+x.item).toLowerCase().includes(q));
+ let tin=data.reduce((s,x)=>s+x.in,0), tout=data.reduce((s,x)=>s+x.out,0);
+ $('tin').textContent=tin.toFixed(3);$('tout').textContent=tout.toFixed(3);$('bal').textContent=(tin-tout).toFixed(3);
+ if(!rows.length){$('records').innerHTML='<div class="empty">No records yet.</div>';return}
+ $('records').innerHTML='<div class="tablewrap"><table><thead><tr><th>Date</th><th>Bill No</th><th>DC No</th><th>Item Name</th><th>In</th><th>Out</th><th>Balance</th><th>Action</th></tr></thead><tbody>'+
+ rows.map((x,i)=>{let before=data.slice(0,data.findIndex(a=>a.id===x.id)).reduce((s,a)=>s+a.in-a.out,0);return `<tr><td>${x.date}</td><td>${x.bill}</td><td>${x.dc}</td><td>${x.item}</td><td>${x.in.toFixed(3)}</td><td>${x.out.toFixed(3)}</td><td>${(before+x.in-x.out).toFixed(3)}</td><td><button class="edit" onclick="editEntry(${x.id})">Edit</button> <button class="del" onclick="deleteEntry(${x.id})">Delete</button></td></tr>`}).join('')+'</tbody></table></div>';
+}
+function exportCSV(){
+ let csv='Date,Bill No,DC No,Item Name,In,Out,Balance\\n',bal=0;
+ data.forEach(x=>{bal+=x.in-x.out;csv+=`"${x.date}","${x.bill}","${x.dc}","${x.item}",${x.in},${x.out},${bal.toFixed(3)}\\n`});
+ let a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));a.download='KLN_TEXTILES_WEFT_GREY.csv';a.click();
+}
+render();
+</script>
+</body>
+</html>
